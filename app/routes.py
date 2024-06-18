@@ -4,41 +4,41 @@ from app.models import User
 from app.forms import LoginForm, RegistrationForm
 from flask_login import login_user, logout_user, current_user, login_required
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
     return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
-def registration():
+def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-        form = LoginForm()
+    form = RegistrationForm()
     if form.validate_on_submit():
-        user = User.query.filter_by (username=form.username.data).first()
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user = User(username=form.username.data, password=hashed_password)
         db.session.add(user)
         db.session.commit()
-        flash('Вы успешно зарегестрировались!', 'success')
+        flash('Вы успешно зарегистрировались!', 'success')
         return redirect(url_for('login'))
-    return render_template('register.html')
+    return render_template("register.html", form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    form = RegistrationForm()
+    form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user)
-            return redirect(url_for('index'))
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('index'))
         else:
-            flash('Неверно введены данные аккаунта', 'danger' )
-    return render_template('login.html')
+            flash('Неверно введены данные аккаунта', 'danger')
+    return render_template("login.html", form=form)
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
     logout_user()
     return redirect(url_for('login'))
@@ -46,11 +46,6 @@ def logout():
 @app.route('/click')
 @login_required
 def click():
-    current_user.clicks += 1
+    current_user.increment_clicks()
     db.session.commit()
     return redirect(url_for('index'))
-
-
-
-
-
